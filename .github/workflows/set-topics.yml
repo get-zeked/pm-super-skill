@@ -4,35 +4,21 @@ on:
   push:
     branches: [main]
 
+permissions: write-all
+
 jobs:
   set-topics:
     runs-on: ubuntu-latest
     steps:
-      - name: Set topics via GraphQL
+      - name: Set topics
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Get repo node ID first
-          REPO_ID=$(gh api graphql -f query='
-            query($owner: String!, $name: String!) {
-              repository(owner: $owner, name: $name) {
-                id
-              }
-            }' -f owner=${{ github.repository_owner }} -f name=${{ github.event.repository.name }} --jq .data.repository.id)
-          echo "Repo ID: $REPO_ID"
-          # Add topic
-          gh api graphql -f query='
-            mutation($repoId: ID!, $topicNames: [String!]!) {
-              updateTopics(input: {repositoryId: $repoId, topicNames: $topicNames}) {
-                repository {
-                  repositoryTopics(first: 10) {
-                    nodes {
-                      topic {
-                        name
-                      }
-                    }
-                  }
-                }
-              }
-            }' -f repoId=$REPO_ID -F topicNames[]='perplexity-super-skill'
-          echo "Done!"
+          echo "Attempting to set topics..."
+          result=$(gh api \
+            --method PUT \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            /repos/${{ github.repository }}/topics \
+            -f 'names[]=perplexity-super-skill' 2>&1)
+          echo "Result: $result"
