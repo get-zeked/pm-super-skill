@@ -1,4 +1,4 @@
-name: Debug Topics API
+name: Set Topics and Save Output
 
 on:
   push:
@@ -7,24 +7,37 @@ on:
 permissions: write-all
 
 jobs:
-  debug-topics:
+  set-topics:
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
-      - name: Debug token and permissions
+      - uses: actions/checkout@v4
+      
+      - name: Try to set topics and capture output
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "=== Token info ==="
-          gh auth status 2>&1 || true
-          echo "=== Current user ==="
-          gh api user --jq '.login' 2>&1 || true
-          echo "=== Try topics API ==="
+          echo "=== Token info ===" > /tmp/debug_output.txt
+          gh auth status 2>&1 >> /tmp/debug_output.txt || true
+          echo "" >> /tmp/debug_output.txt
+          echo "=== PUT topics API call ===" >> /tmp/debug_output.txt
           gh api \
             --method PUT \
             -H "Accept: application/vnd.github+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             /repos/${{ github.repository }}/topics \
-            -f 'names[]=perplexity-super-skill' 2>&1 || true
-          echo "=== Current topics ==="  
-          gh api /repos/${{ github.repository }}/topics 2>&1 || true
+            -f 'names[]=perplexity-super-skill' 2>&1 >> /tmp/debug_output.txt || true
+          echo "" >> /tmp/debug_output.txt
+          echo "=== Current topics ===" >> /tmp/debug_output.txt
+          gh api /repos/${{ github.repository }}/topics 2>&1 >> /tmp/debug_output.txt || true
+          cat /tmp/debug_output.txt
+          
+      - name: Save debug output to repo
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cat /tmp/debug_output.txt > debug_output.txt
+          git config --global user.email 'github-actions@github.com'
+          git config --global user.name 'GitHub Actions'
+          git add debug_output.txt
+          git commit -m 'Debug: save API output' --allow-empty
+          git push
